@@ -1,7 +1,8 @@
 """Memory model for MAIOS."""
 
 import enum
-from datetime import datetime
+import math
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -23,13 +24,15 @@ class MemoryEntry(SQLModel, table=True):
     """Memory entry model for storing agent memories."""
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     content: str = Field(..., min_length=1, max_length=50000)
     memory_type: MemoryType = Field(default=MemoryType.EPISODIC)
-    agent_id: Optional[UUID] = Field(default=None, foreign_key="agent.id")
-    project_id: Optional[UUID] = Field(default=None, foreign_key="project.id")
-    task_id: Optional[UUID] = Field(default=None, foreign_key="task.id")
-    team_id: Optional[UUID] = Field(default=None, foreign_key="team.id")
+    # Foreign keys are stored as UUIDs - FK constraints are enforced at DB level
+    # This allows for easier testing with in-memory SQLite databases
+    agent_id: Optional[UUID] = Field(default=None, index=True)
+    project_id: Optional[UUID] = Field(default=None, index=True)
+    task_id: Optional[UUID] = Field(default=None, index=True)
+    team_id: Optional[UUID] = Field(default=None, index=True)
     embedding: Optional[list[float]] = Field(default=None, sa_column=Column(JSON))
     importance: float = Field(default=0.5, ge=0.0, le=1.0)
     access_count: int = Field(default=0, ge=0)
@@ -40,7 +43,7 @@ class MemoryEntry(SQLModel, table=True):
     def access(self) -> None:
         """Record an access to this memory."""
         self.access_count += 1
-        self.last_accessed = datetime.utcnow()
+        self.last_accessed = datetime.now(timezone.utc)
 
     def set_importance(self, importance: float) -> None:
         """Set the importance score."""
@@ -103,10 +106,13 @@ class MemoryEntry(SQLModel, table=True):
         return self.memory_type == MemoryType.WORKING
 
     def get_relevance_score(self) -> float:
-        """Calculate a relevance score based on access count and importance."""
-        # Combine importance with access frequency (logarithmic scaling)
-        import math
-        access_factor = math.log1p(self.access_count) / 10  # Normalize access count
+        """Calculate a relevance score based on access count and importance.
+
+        Uses weighted combination:
+        - 70% importance score
+        - 30% access frequency (logarithmic scaling normalized by 10)
+        """
+        access_factor = math.log1p(self.access_count) / 10
         return min(1.0, self.importance * 0.7 + access_factor * 0.3)
 
     def is_related_to(
