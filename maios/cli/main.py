@@ -2,11 +2,16 @@
 import typer
 from rich.console import Console
 
+from maios.cli import project
+
 app = typer.Typer(
     name="maios",
     help="Metamorphic AI Orchestration System",
 )
 console = Console()
+
+# Register sub-apps
+app.add_typer(project.app, name="project")
 
 
 def version_callback(value: bool):
