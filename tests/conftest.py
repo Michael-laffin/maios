@@ -38,3 +38,27 @@ def test_env():
     # Reset cached instances after test
     config_module._settings = None
     redis_module._pool = None
+
+
+@pytest.fixture(autouse=True, scope="session")
+def setup_test_env():
+    """Automatically set up test environment for all tests."""
+    # Set required environment variables for tests
+    test_env_values = {
+        "ZAI_API_KEY": "test-api-key",
+        "DATABASE_URL": "postgresql://localhost:5432/maios_test",
+        "REDIS_URL": "redis://localhost:6379/0",
+    }
+
+    original_env = {}
+    for key, value in test_env_values.items():
+        if key not in os.environ:
+            original_env[key] = None
+            os.environ[key] = value
+
+    yield
+
+    # Restore original environment
+    for key, value in original_env.items():
+        if value is None:
+            os.environ.pop(key, None)
