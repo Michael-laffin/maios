@@ -1,6 +1,4 @@
 # tests/unit/test_database.py
-import os
-
 import pytest
 
 
