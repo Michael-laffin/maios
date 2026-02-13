@@ -1,0 +1,81 @@
+version: "3.12"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: maios
+      POSTGRES_PASSWORD: maios
+      POSTGRES_DB: maios
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U maios"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://maios:maios@postgres:5432/maios
+      - REDIS_URL=redis://redis:6379/0
+      - ZAI_API_KEY=${ZAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./maios:/app/maios:ro
+    command: uvicorn maios.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      - DATABASE_URL=postgresql://maios:maios@postgres:5432/maios
+      - REDIS_URL=redis://redis:6379/0
+      - ZAI_API_KEY=${ZAI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./maios:/app/maios:ro
+    command: celery -A maios.workers.celery_app worker --loglevel=info
+
+  beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A maios.workers.celery_app beat --loglevel=info
+
+volumes:
+  postgres_data:
+  redis_data:
