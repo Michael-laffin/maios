@@ -35,8 +35,8 @@ class Project(SQLModel, table=True):
     context_files: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     orchestrator_phase: str = Field(default="PLAN", max_length=50)
     project_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON))
-    organization_id: Optional[UUID] = Field(default=None, foreign_key="organization.id")
-    owner_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    organization_id: Optional[UUID] = Field(default=None)  # Organization membership (not yet implemented)
+    owner_id: Optional[UUID] = Field(default=None)  # User ownership (not yet implemented)
 
     def update_timestamp(self) -> None:
         """Update the updated_at timestamp."""

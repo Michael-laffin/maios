@@ -42,7 +42,7 @@ class Agent(SQLModel, table=True):
     tasks_failed: int = Field(default=0, ge=0)
     current_task_id: Optional[UUID] = Field(default=None, foreign_key="task.id")
     working_memory_limit: int = Field(default=10, ge=1, le=100)
-    team_id: Optional[UUID] = Field(default=None, foreign_key="team.id")
+    team_id: Optional[UUID] = Field(default=None)  # Team membership (Team model not yet implemented)
     is_active: bool = Field(default=True)
     last_heartbeat: Optional[datetime] = Field(default=None)
 
